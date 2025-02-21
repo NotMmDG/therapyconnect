@@ -1,0 +1,11 @@
+django
+djangorestframework
+mysqlclient
+django-cors-headers
+djangorestframework
+djangorestframework-simplejwt
+django-cors-headers
+social-auth-app-django
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
