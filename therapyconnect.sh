@@ -1,152 +1,117 @@
 #!/bin/bash
 
-# TherapyConnect CLI
-# Automates installation, management, and SSL setup for TherapyConnect
+THERAPYCONNECT_DIR="/root/therapyconnect"
+ENV_FILE="$THERAPYCONNECT_DIR/.env"
+NGINX_CONF="/etc/nginx/sites-available/therapyconnect"
 
-PROJECT_DIR="$HOME/therapyconnect"
-NGINX_CONF="$PROJECT_DIR/nginx.conf"
-DOCKER_COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
+BANNER="""
+████████╗██╗  ██╗████████╗███████╗██████╗ ██╗   ██╗ ██████╗███████╗███╗   ██╗████████╗
+╚══██╔══╝██║  ██║╚══██╔══╝██╔════╝██╔══██╗██║   ██║██╔════╝██╔════╝████╗  ██║╚══██╔══╝
+   ██║   ███████║   ██║   █████╗  ██████╔╝██║   ██║██║     █████╗  ██╔██╗ ██║   ██║   
+   ██║   ██╔══██║   ██║   ██╔══╝  ██╔═══╝ ██║   ██║██║     ██╔══╝  ██║╚██╗██║   ██║   
+   ██║   ██║  ██║   ██║   ███████╗██║     ╚██████╔╝╚██████╗███████╗██║ ╚████║   ██║   
+   ╚═╝   ╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝      ╚═════╝  ╚═════╝╚══════╝╚═╝  ╚═══╝   ╚═╝   
+"""
 
-# Colors
-GREEN="\e[32m"
-CYAN="\e[36m"
-YELLOW="\e[33m"
-RED="\e[31m"
-RESET="\e[0m"
+echo -e "\e[34m$BANNER\e[0m"
 
-# TherapyConnect ASCII Banner (THTEPVCEOO style)
-display_banner() {
-    echo -e "${CYAN}"
-    echo " ████████╗██╗  ██╗████████╗███████╗██████╗ ██╗   ██╗██████╗ ██████╗ ███████╗ ██████╗ ██████╗ "
-    echo " ╚══██╔══╝██║  ██║╚══██╔══╝██╔════╝██╔══██╗██║   ██║██╔══██╗██╔══██╗██╔════╝██╔═══██╗██╔══██╗"
-    echo "    ██║   ███████║   ██║   █████╗  ██████╔╝██║   ██║██████╔╝██████╔╝█████╗  ██║   ██║██████╔╝"
-    echo "    ██║   ██╔══██║   ██║   ██╔══╝  ██╔═══╝ ╚██╗ ██╔╝██╔═══╝ ██╔═══╝ ██╔══╝  ██║   ██║██╔══██╗"
-    echo "    ██║   ██║  ██║   ██║   ███████╗██║      ╚████╔╝ ██║     ██║     ███████╗╚██████╔╝██║  ██║"
-    echo "    ╚═╝   ╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝       ╚═══╝  ╚═╝     ╚═╝     ╚══════╝ ╚═════╝ ╚═╝  ╚═╝"
-    echo -e "${RESET}"
+autodetect_ports() {
+  sudo systemctl stop nginx &>/dev/null
+  sudo systemctl stop apache2 &>/dev/null
+  sudo ufw allow 80/tcp &>/dev/null
+  sudo ufw allow 443/tcp &>/dev/null
 }
 
-# Install TherapyConnect
-install() {
-    display_banner
-    echo -e "${GREEN}Installing TherapyConnect...${RESET}"
+install_therapyconnect() {
+  echo "Installing TherapyConnect..."
+  sudo apt update -y && sudo apt upgrade -y
+  sudo apt install -y curl socat docker-compose
+  
+  read -p "Enter your email: " EMAIL
+  read -p "Enter your domain: " DOMAIN
+  
+  mkdir -p $THERAPYCONNECT_DIR
+  echo "DOMAIN=$DOMAIN" > $ENV_FILE
+  echo "EMAIL=$EMAIL" >> $ENV_FILE
 
-    # Update and install necessary dependencies
-    echo -e "${YELLOW}Updating system and installing dependencies...${RESET}"
-    sudo apt update && sudo apt upgrade -y
-    sudo apt install -y curl socat docker-compose git
-    
-    # Ask for user input
-    echo -e "${CYAN}Enter your email for SSL certificate:${RESET}"
-    read EMAIL
-    echo -e "${CYAN}Enter your domain (e.g., therapyconnect.info):${RESET}"
-    read DOMAIN
+  autodetect_ports
+  sudo certbot certonly --standalone --preferred-challenges http --email $EMAIL -d $DOMAIN -d www.$DOMAIN || {
+    echo "Failed to obtain SSL certificates!"
+    exit 1
+  }
 
-    # Clone project
-    echo -e "${YELLOW}Cloning TherapyConnect repository...${RESET}"
-    git clone https://github.com/NotMmDG/therapyconnect.git "$PROJECT_DIR"
+  echo "Updating configuration files with your domain..."
+  sed -i "s|DOMAIN|$DOMAIN|g" $NGINX_CONF
 
-    # Generate SSL Certificates
-    get_ssl
-
-    # Update config files with domain
-    echo -e "${YELLOW}Updating configuration files with your domain...${RESET}"
-    sed -i "s/therapyconnect.info/$DOMAIN/g" "$NGINX_CONF"
-    sed -i "s/therapyconnect.info/$DOMAIN/g" "$DOCKER_COMPOSE_FILE"
-
-    # Start TherapyConnect
-    echo -e "${GREEN}Starting TherapyConnect...${RESET}"
-    (cd "$PROJECT_DIR" && docker-compose up -d --build)
-
-    echo -e "${GREEN}TherapyConnect is now installed and running!${RESET}"
+  echo "Starting TherapyConnect..."
+  docker-compose -f $THERAPYCONNECT_DIR/docker-compose.yml up -d
+  echo "TherapyConnect is now installed and running!"
 }
 
-# Uninstall TherapyConnect
-uninstall() {
-    display_banner
-    echo -e "${RED}Uninstalling TherapyConnect...${RESET}"
-    (cd "$PROJECT_DIR" && docker-compose down)
-    sudo rm -rf "$PROJECT_DIR"
-    echo -e "${RED}TherapyConnect has been removed.${RESET}"
+uninstall_therapyconnect() {
+  echo "Stopping and removing TherapyConnect..."
+  docker-compose -f $THERAPYCONNECT_DIR/docker-compose.yml down
+  rm -rf $THERAPYCONNECT_DIR
+  sudo rm -f /usr/local/bin/therapyconnect
+  echo "TherapyConnect has been uninstalled."
 }
 
-# Start TherapyConnect
-start() {
-    display_banner
-    echo -e "${GREEN}Starting TherapyConnect...${RESET}"
-    (cd "$PROJECT_DIR" && docker-compose up -d)
+start_therapyconnect() {
+  docker-compose -f $THERAPYCONNECT_DIR/docker-compose.yml up -d
 }
 
-# Stop TherapyConnect
-stop() {
-    display_banner
-    echo -e "${YELLOW}Stopping TherapyConnect...${RESET}"
-    (cd "$PROJECT_DIR" && docker-compose down)
+stop_therapyconnect() {
+  docker-compose -f $THERAPYCONNECT_DIR/docker-compose.yml down
 }
 
-# Restart TherapyConnect
-restart() {
-    display_banner
-    echo -e "${CYAN}Restarting TherapyConnect...${RESET}"
-    stop
-    start
+restart_therapyconnect() {
+  stop_therapyconnect
+  start_therapyconnect
 }
 
-# Update TherapyConnect
-update() {
-    display_banner
-    echo -e "${YELLOW}Updating TherapyConnect...${RESET}"
-    stop
-    sudo rm -rf "$PROJECT_DIR"
-    install
+update_therapyconnect() {
+  stop_therapyconnect
+  uninstall_therapyconnect
+  install_therapyconnect
 }
 
-# Get SSL Certificate
 get_ssl() {
-    echo -e "${YELLOW}Getting SSL certificates for $DOMAIN...${RESET}"
-    sudo docker run --rm -v certbot-ssl:/etc/letsencrypt certbot/certbot certonly \
-        --standalone --agree-tos --no-eff-email \
-        -m "$EMAIL" -d "$DOMAIN" -d "www.$DOMAIN"
-    echo -e "${GREEN}SSL certificates obtained successfully!${RESET}"
+  read -p "Enter your email: " EMAIL
+  read -p "Enter your domain: " DOMAIN
+  
+  sudo certbot certonly --standalone --preferred-challenges http --email $EMAIL -d $DOMAIN -d www.$DOMAIN
 }
 
-# Help Command
-help() {
-    display_banner
-    echo -e "${YELLOW}Available Commands:${RESET}"
-    echo -e "${CYAN}therapyconnect install${RESET}   - Install TherapyConnect and configure SSL"
-    echo -e "${CYAN}therapyconnect uninstall${RESET} - Uninstall TherapyConnect completely"
-    echo -e "${CYAN}therapyconnect start${RESET}     - Start TherapyConnect services"
-    echo -e "${CYAN}therapyconnect stop${RESET}      - Stop TherapyConnect services"
-    echo -e "${CYAN}therapyconnect restart${RESET}   - Restart TherapyConnect services"
-    echo -e "${CYAN}therapyconnect update${RESET}    - Update TherapyConnect to the latest version"
-    echo -e "${CYAN}therapyconnect get-ssl${RESET}   - Generate new SSL certificates"
-    echo -e "${CYAN}therapyconnect help${RESET}      - Show this help menu"
+help_menu() {
+  echo "\e[32mAvailable Commands:\e[0m"
+  echo " install        - Install TherapyConnect"
+  echo " uninstall      - Uninstall TherapyConnect"
+  echo " start          - Start TherapyConnect"
+  echo " stop           - Stop TherapyConnect"
+  echo " restart        - Restart TherapyConnect"
+  echo " update         - Update TherapyConnect"
+  echo " get-ssl        - Obtain SSL certificates"
+  echo " help           - Show available commands"
 }
 
-# Add CLI to /usr/local/bin for global use
-setup_global_command() {
-    echo -e "${YELLOW}Setting up global command...${RESET}"
-    sudo cp "$0" /usr/local/bin/therapyconnect
-    sudo chmod +x /usr/local/bin/therapyconnect
-    echo -e "${GREEN}You can now use 'therapyconnect' from anywhere!${RESET}"
-}
+if [ "$1" == "install" ]; then
+  install_therapyconnect
+elif [ "$1" == "uninstall" ]; then
+  uninstall_therapyconnect
+elif [ "$1" == "start" ]; then
+  start_therapyconnect
+elif [ "$1" == "stop" ]; then
+  stop_therapyconnect
+elif [ "$1" == "restart" ]; then
+  restart_therapyconnect
+elif [ "$1" == "update" ]; then
+  update_therapyconnect
+elif [ "$1" == "get-ssl" ]; then
+  get_ssl
+else
+  help_menu
+fi
 
-# Main CLI logic
-case "$1" in
-    install) install ;;
-    uninstall) uninstall ;;
-    start) start ;;
-    stop) stop ;;
-    restart) restart ;;
-    update) update ;;
-    get-ssl) get_ssl ;;
-    help) help ;;
-    setup) setup_global_command ;;
-    *)
-        display_banner
-        echo -e "${RED}Error: Invalid command '${1}'${RESET}"
-        help
-        exit 1
-        ;;
-esac
+# Add to system path
+sudo cp "$0" /usr/local/bin/therapyconnect
+sudo chmod +x /usr/local/bin/therapyconnect
