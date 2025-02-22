@@ -25,12 +25,12 @@ autodetect_ports() {
 install_therapyconnect() {
   echo "Installing TherapyConnect..."
   sudo apt update -y && sudo apt upgrade -y
-  sudo apt install -y curl socat docker-compose
+  sudo apt install -y curl socat docker-compose git certbot
   
   read -p "Enter your email: " EMAIL
   read -p "Enter your domain: " DOMAIN
-  
-  mkdir -p $THERAPYCONNECT_DIR
+  echo -e "${YELLOW}Cloning TherapyConnect repository...${RESET}"
+  git clone https://github.com/NotMmDG/therapyconnect.git "$THERAPYCONNECT_DIR"
   echo "DOMAIN=$DOMAIN" > $ENV_FILE
   echo "EMAIL=$EMAIL" >> $ENV_FILE
 
