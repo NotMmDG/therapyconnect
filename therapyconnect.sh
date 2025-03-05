@@ -30,7 +30,7 @@ install_therapyconnect() {
   read -p "Enter your email: " EMAIL
   read -p "Enter your domain: " DOMAIN
   echo -e "${YELLOW}Cloning TherapyConnect repository...${RESET}"
-  git clone https://github.com/NotMmDG/therapyconnect.git "$THERAPYCONNECT_DIR"
+  git clone https://github.com/kiananasiri/therapyApp.git "$THERAPYCONNECT_DIR"
   echo "DOMAIN=$DOMAIN" > $ENV_FILE
   echo "EMAIL=$EMAIL" >> $ENV_FILE
 
