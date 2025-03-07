@@ -3,7 +3,9 @@
 THERAPYCONNECT_DIR="/root/therapyconnect"
 ENV_FILE="$THERAPYCONNECT_DIR/.env"
 NGINX_CONF="/etc/nginx/sites-available/therapyconnect"
-
+sudo mkdir -p /etc/nginx
+sudo mkdir -p /etc/nginx/conf.d
+touch /etc/nginx/conf.d/default.conf.template
 BANNER="""
 ████████╗██╗  ██╗████████╗███████╗██████╗ ██╗   ██╗ ██████╗███████╗███╗   ██╗████████╗
 ╚══██╔══╝██║  ██║╚══██╔══╝██╔════╝██╔══██╗██║   ██║██╔════╝██╔════╝████╗  ██║╚══██╔══╝
