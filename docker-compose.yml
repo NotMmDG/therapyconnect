@@ -16,7 +16,7 @@ services:
       - "443:443"
     env_file:
       - .env
-    entrypoint: ["/entrypoint.sh"]
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
 
   backend:
     build: ./backend
