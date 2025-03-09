@@ -18,7 +18,7 @@ export default function Profile() {
         <h1 className="text-2xl font-semibold text-gray-700 ml-4">My Profile</h1>
       </header>
 
-      {/* Profile content container */}
+      {/* Profile CHABGES*/}
       <div className="max-w-4xl mx-auto px-6 pb-16">
         {/* Profile card */}
         <motion.div 
